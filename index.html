@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pump Filter Changes</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;650;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Firebase Legacy Compat SDKs (perfect for standalone single-file apps) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+  <style>
+    /* Custom utility animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- ========================================== -->
+  <!-- BRAND HEADER                               -->
+  <!-- ========================================== -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs px-4 py-3.5 sm:px-6">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-600 text-white p-2 rounded-lg shadow-sm">
+          <i data-lucide="fuel" class="h-6 w-6 stroke-[2.2]"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 font-display sm:text-2xl">
+            Pump Filter Changes
+          </h1>
+          <p class="text-xs text-slate-500 font-medium hidden sm:block">
+            Unified Network Maintenance &amp; Operational Tracker Node
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Connectivity Badge -->
+        <div id="connectivity-badge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold shadow-xs bg-rose-50 text-rose-700 border border-rose-200">
+          <span id="connectivity-dot" class="h-2 w-2 rounded-full bg-rose-500"></span>
+          <span id="connectivity-text">Offline</span>
+          <i id="connectivity-icon" data-lucide="wifi-off" class="h-3.5 w-3.5"></i>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- MAIN GRAPHICAL CONTAINER                   -->
+  <!-- ========================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+    
+    <!-- Realtime Statistics Block -->
+    <section class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <!-- Total Stores -->
+      <div onclick="setStatusFilter('all')" id="stat-total" class="bg-white border border-slate-800 ring-2 ring-slate-100 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Stores</span>
+        <div class="flex items-baseline gap-2">
+          <span id="count-total" class="text-2xl sm:text-3xl font-bold font-mono text-slate-800">0</span>
+          <span class="text-xs text-slate-400 font-medium">stores</span>
+        </div>
+      </div>
+
+      <!-- Fully Done -->
+      <div onclick="setStatusFilter('completed')" id="stat-completed" class="bg-white border border-slate-200 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150">
+        <span class="text-xs font-bold text-emerald-600 uppercase tracking-widest block mb-1">✅ Fully Done</span>
+        <div class="flex items-baseline gap-2">
+          <span id="count-completed" class="text-2xl sm:text-3xl font-bold font-mono text-emerald-700">0</span>
+          <span id="percent-completed" class="text-xs text-emerald-500 font-medium">0%</span>
+        </div>
+      </div>
+
+      <!-- Partial Only -->
+      <div onclick="setStatusFilter('partial')" id="stat-partial" class="bg-white border border-slate-200 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150">
+        <span class="text-xs font-bold text-amber-600 uppercase tracking-widest block mb-1">⚠️ Partial Only</span>
+        <div class="flex items-baseline gap-2">
+          <span id="count-partial" class="text-2xl sm:text-3xl font-bold font-mono text-amber-700">0</span>
+          <span class="text-xs text-amber-500 font-medium">1 of 2</span>
+        </div>
+      </div>
+
+      <!-- Pending -->
+      <div onclick="setStatusFilter('pending')" id="stat-pending" class="bg-white border border-slate-200 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">➖ Pending</span>
+        <div class="flex items-baseline gap-2">
+          <span id="count-pending" class="text-2xl sm:text-3xl font-bold font-mono text-slate-700">0</span>
+          <span class="text-xs text-slate-500 font-medium">none done</span>
+        </div>
+      </div>
+
+      <!-- Overdue -->
+      <div onclick="setStatusFilter('overdue')" id="stat-overdue" class="bg-white border border-rose-100 bg-rose-50/20 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150">
+        <span class="text-xs font-bold text-rose-600 uppercase tracking-widest block mb-1">🚨 Overdue</span>
+        <div class="flex items-baseline gap-2">
+          <span id="count-overdue" class="text-2xl sm:text-3xl font-bold font-mono text-rose-700">0</span>
+          <span class="text-xs text-rose-505 font-medium">&gt;90d old</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters Controlling Toolbar -->
+    <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div class="relative w-full md:max-w-md">
+        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4"></i>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search store number, name or custom comments..."
+          oninput="handleSearch(this.value)"
+          class="w-full pl-10 pr-10 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 placeholder-slate-400 transition-all font-sans"
+        />
+        <button
+          id="search-clear-btn"
+          onclick="clearSearch()"
+          style="display: none;"
+          class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100"
+        >
+          <i data-lucide="x" class="h-3.5 w-3.5"></i>
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+        <!-- Category Dropdown -->
+        <div class="flex items-center gap-1.5 flex-1 md:flex-initial">
+          <select
+            id="category-dropdown"
+            onchange="setCategoryFilter(this.value)"
+            class="w-full md:w-40 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg px-2.5 py-2 cursor-pointer outline-none transition-all duration-150 align-middle"
+          >
+            <option value="all">All Category Types</option>
+            <option value="fastfood">🍔 Fast Food</option>
+            <option value="cstore">🏪 C-Store</option>
+            <option value="carwash">🧼 Car Wash</option>
+          </select>
+        </div>
+
+        <!-- Region Dropdown -->
+        <div class="flex items-center gap-1.5 flex-1 md:flex-initial">
+          <select
+            id="region-dropdown"
+            onchange="setRegionFilter(this.value)"
+            class="w-full md:w-36 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg px-2.5 py-2 cursor-pointer outline-none transition-all duration-150 align-middle"
+          >
+            <option value="all">All Regions</option>
+            <option value="east">🏁 East TX</option>
+            <option value="west">🌵 West TX</option>
+          </select>
+        </div>
+
+        <!-- Status Dropdown -->
+        <div class="flex items-center gap-1.5 flex-1 md:flex-initial">
+          <select
+            id="status-dropdown"
+            onchange="setStatusFilter(this.value)"
+            class="w-full md:w-40 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg px-2.5 py-2 cursor-pointer outline-none transition-all duration-150 align-middle"
+          >
+            <option value="all">All Change States</option>
+            <option value="completed">✅ Fully Completed</option>
+            <option value="partial">⚠️ Partial Changes</option>
+            <option value="pending">➖ Pending Changes</option>
+            <option value="overdue">🚨 Overdue States</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Grid Cards Section -->
+    <section id="stores-grid-section" class="flex-1">
+      <div id="loading-placeholder" class="text-center py-12">
+        <div class="inline-block h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-sm font-semibold text-slate-500">Synchronizing operational store databases...</p>
+      </div>
+
+      <div id="empty-state-card" style="display: none;" class="bg-white border border-slate-200 rounded-2xl p-12 text-center max-w-lg mx-auto shadow-xs">
+        <i data-lucide="alert-triangle" class="h-12 w-12 text-slate-400 mx-auto mb-4 stroke-[1.5]"></i>
+        <h3 class="text-lg font-bold text-slate-900 font-display mb-1">No Stores Match Filter Criteria</h3>
+        <p class="text-sm text-slate-500 mb-6">
+          Please refine your search query, or clear active category or status selection choices.
+        </p>
+        <button
+          onclick="resetFilters()"
+          class="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all"
+        >
+          Clear All Filter Selections
+        </button>
+      </div>
+
+      <div id="stores-grid" style="display: none;" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        <!-- Rendered Dynamically via JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================== -->
+  <!-- INTERACTIVE MODAL DIALOG CONTAINER         -->
+  <!-- ========================================== -->
+  <div id="details-modal-backdrop" style="display: none;" class="fixed inset-0 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4 z-50" onclick="closeModal()">
+    <div id="details-modal-card" class="bg-white rounded-2xl w-full max-w-lg shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[95vh] animate-fade-in" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-50 border-b border-slate-150 px-5 py-4 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <span id="modal-store-badge" class="bg-slate-200 text-slate-800 text-xs font-bold font-mono px-2 py-0.5 rounded-sm border border-slate-300">
+            Store Unit #---
+          </span>
+          <h3 id="modal-store-name" class="text-base font-bold text-slate-900 font-display mt-1 truncate leading-tight">
+            Store Title
+          </h3>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 p-1 rounded-full transition-all">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Info Details Body -->
+      <div class="p-5 overflow-y-auto flex flex-col gap-4">
+        <!-- Store Address Box -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-1 text-xs">
+          <div class="flex justify-between items-start">
+            <span class="font-bold text-slate-500">Address &amp; Details</span>
+            <span id="modal-store-phone" class="font-semibold text-slate-600 font-mono text-[11px]">
+              📞 ---
+            </span>
+          </div>
+          <a id="modal-store-address-link" href="#" target="_blank" class="text-blue-600 font-bold hover:underline inline-flex items-center gap-1 mt-1 leading-snug">
+            <i data-lucide="map-pin" class="h-3.5 w-3.5 flex-shrink-0 text-blue-500"></i>
+            <span id="modal-store-address-text">Address</span>
+            <i data-lucide="external-link" class="h-3 w-3 flex-shrink-0"></i>
+          </a>
+        </div>
+
+        <div class="flex flex-col gap-4">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1">
+            Gas &amp; Diesel Filters Audit
+          </h4>
+
+          <!-- Gas Cover Segment -->
+          <div class="flex flex-col gap-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+            <label class="text-sm font-bold text-slate-800 flex items-center justify-between">
+              <span class="flex items-center gap-1.5 leading-none">
+                <i data-lucide="flame" class="h-4 w-4 text-emerald-500"></i>
+                Did you change the Gas Filters?
+              </span>
+              <span id="gas-status-badge" style="display: none;" class="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-emerald-100 text-emerald-800">
+                yes
+              </span>
+            </label>
+
+            <div class="grid grid-cols-2 gap-2 mt-1">
+              <button
+                id="opt-gas-yes"
+                type="button"
+                onclick="setGasChanged('yes')"
+                class="py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                <i data-lucide="check-circle-2" class="h-4 w-4 shrink-0"></i>
+                Yes
+              </button>
+              <button
+                id="opt-gas-no"
+                type="button"
+                onclick="setGasChanged('no')"
+                class="py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                <i data-lucide="x" class="h-4 w-4 shrink-0"></i>
+                No
+              </button>
+            </div>
+
+            <!-- Date Selector Gas -->
+            <div id="gas-date-field" style="display: none;" class="mt-3.5 flex flex-col gap-1">
+              <span class="text-xs font-bold text-slate-500">Gas Filters Maintenance Date</span>
+              <div class="flex gap-2">
+                <input
+                  id="gas-datepicker"
+                  type="date"
+                  class="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:border-emerald-500 focus:ring-3 focus:ring-emerald-100 font-sans"
+                />
+                <button
+                  type="button"
+                  onclick="setGasDateToday()"
+                  class="px-3.5 py-2 text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg shrink-0 hover:bg-emerald-100 transition-all font-sans"
+                >
+                  ⚡ Today
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Diesel Cover Segment -->
+          <div class="flex flex-col gap-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+            <label class="text-sm font-bold text-slate-800 flex items-center justify-between">
+              <span class="flex items-center gap-1.5 leading-none">
+                <i data-lucide="fuel" class="h-4 w-4 text-blue-500 animate-pulse"></i>
+                Did you change the Diesel Filters?
+              </span>
+              <span id="diesel-status-badge" style="display: none;" class="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-blue-100 text-blue-800">
+                yes
+              </span>
+            </label>
+
+            <div class="grid grid-cols-2 gap-2 mt-1">
+              <button
+                id="opt-diesel-yes"
+                type="button"
+                onclick="setDieselChanged('yes')"
+                class="py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                <i data-lucide="check-circle-2" class="h-4 w-4 shrink-0"></i>
+                Yes
+              </button>
+              <button
+                id="opt-diesel-no"
+                type="button"
+                onclick="setDieselChanged('no')"
+                class="py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                <i data-lucide="x" class="h-4 w-4 shrink-0"></i>
+                No
+              </button>
+            </div>
+
+            <!-- Date Selector Diesel -->
+            <div id="diesel-date-field" style="display: none;" class="mt-3.5 flex flex-col gap-1">
+              <span class="text-xs font-bold text-slate-500">Diesel Filters Maintenance Date</span>
+              <div class="flex gap-2">
+                <input
+                  id="diesel-datepicker"
+                  type="date"
+                  class="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-100 font-sans"
+                />
+                <button
+                  type="button"
+                  onclick="setDieselDateToday()"
+                  class="px-3.5 py-2 text-xs font-bold bg-blue-50 border border-blue-200 text-blue-700 rounded-lg shrink-0 hover:bg-blue-100 transition-all font-sans"
+                >
+                  ⚡ Today
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comment area -->
+          <div class="flex flex-col gap-1.5 mt-1">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-slate-500">Additional Comments (Optional)</span>
+              <span id="char-counter" class="text-[10px] text-slate-400 font-mono">0 / 250</span>
+            </div>
+            <textarea
+              id="comments-textarea"
+              oninput="updateCommentsValue(this.value)"
+              placeholder="Provide additional details or technician logs..."
+              maxLength="250"
+              class="w-full text-xs border border-slate-200 rounded-xl p-3 min-h-[70px] resize-none outline-none focus:border-slate-400 transition-all font-sans placeholder-slate-400"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-50 border-t border-slate-200 px-5 py-4 flex items-center justify-between gap-3 shrink-0">
+        <div>
+          <button
+            id="clear-record-btn"
+            style="display: none;"
+            onclick="handleClearRecord()"
+            class="text-xs font-bold text-rose-650 hover:text-rose-800 hover:bg-rose-50 px-3.5 py-2.5 rounded-lg border border-rose-200 transition-all shrink-0 inline-flex items-center gap-1"
+          >
+            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+            Reset Filters Record
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2.5 ml-auto">
+          <button
+            onclick="closeModal()"
+            class="px-4 py-2.5 text-xs font-bold text-slate-600 border border-slate-200 hover:bg-slate-100 rounded-lg transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            id="save-changes-btn"
+            onclick="handleSaveRecord()"
+            class="px-6 py-2.5 text-xs font-bold text-white rounded-lg transition-all shadow-xs flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700"
+          >
+            <span id="save-spinner" style="display: none;" class="inline-block h-3.5 w-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin"></span>
+            <i id="save-check-icon" style="display: none;" data-lucide="check" class="h-3.5 w-3.5 stroke-[2.5]"></i>
+            <span id="save-btn-text">Save Record</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- core operational engine JS                 -->
+  <!-- ========================================== -->
+  <script>
+    // Configuration threshold
+    const REMINDER_THRESHOLD_DAYS = 90;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDIGLmJ5r_fBhB5xOL8oadQ7csN3wGh2dI",
+      authDomain: "dpm-alignment.firebaseapp.com",
+      databaseURL: "https://dpm-alignment-default-rtdb.firebaseio.com",
+      projectId: "dpm-alignment",
+      storageBucket: "dpm-alignment.firebasestorage.app",
+      messagingSenderId: "298588092433",
+      appId: "1:298588092433:web:694a9412658adac039d9b0"
+    };
+
+    // Firebase initialization Compat Setup
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // In-memory data store cache
+    let rawRestaurants = {};
+    let rawGasCoverChanges = {};
+    let isConnected = false;
+
+    // Filters Model State
+    let searchQuery = "";
+    let statusFilter = "all";
+    let categoryFilter = "all";
+    let regionFilter = "all";
+
+    // Active Selection State modal
+    let selectedStoreId = null;
+    let gasChanged = "";
+    let dieselChanged = "";
+    let gasDate = "";
+    let dieselDate = "";
+    let modalComments = "";
+    let isSaving = false;
+
+    // 1. Safe path keys for firebase compatibility
+    function getFirebaseSafePathKey(storeNumber) {
+      if (!storeNumber) return "unknown";
+      return String(storeNumber)
+        .replace(/[.#$[\]/]/g, "")
+        .replace(/\s+/g, "_")
+        .trim();
+    }
+
+    // 2. Fetch databases metrics
+    db.ref("restaurants").on("value", (snapshot) => {
+      rawRestaurants = snapshot.val() || {};
+      combineAndRender();
+    });
+
+    db.ref("gasCoverChanges").on("value", (snapshot) => {
+      rawGasCoverChanges = snapshot.val() || {};
+      combineAndRender();
+    });
+
+    // 3. System Connection status observer
+    db.ref(".info/connected").on("value", (snap) => {
+      isConnected = !!snap.val();
+      updateConnectivityBadge();
+    });
+
+    function updateConnectivityBadge() {
+      const badge = document.getElementById("connectivity-badge");
+      const dot = document.getElementById("connectivity-dot");
+      const label = document.getElementById("connectivity-text");
+      const container = document.getElementById("connectivity-badge");
+
+      if (isConnected) {
+        badge.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold shadow-xs bg-emerald-50 text-emerald-700 border border-emerald-200";
+        dot.className = "h-2 w-2 rounded-full bg-emerald-500 animate-pulse";
+        label.innerText = "Connected";
+        container.innerHTML = `<span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span><span>Connected</span><i data-lucide="wifi" class="h-3.5 w-3.5"></i>`;
+      } else {
+        badge.className = "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold shadow-xs bg-rose-50 text-rose-700 border border-rose-200";
+        dot.className = "h-2 w-2 rounded-full bg-rose-500";
+        label.innerText = "Offline";
+        container.innerHTML = `<span class="h-2 w-2 rounded-full bg-rose-500"></span><span>Offline</span><i data-lucide="wifi-off" class="h-3.5 w-3.5"></i>`;
+      }
+      lucide.createIcons();
+    }
+
+    // Helper calculate elapsed days
+    function calculateDaysSinceChange(timestamp) {
+      if (!timestamp) return null;
+      const differenceMs = Date.now() - timestamp;
+      const computedDays = Math.floor(differenceMs / (1000 * 60 * 60 * 24));
+      return Math.max(0, computedDays);
+    }
+
+    // Deterministic category matcher
+    function getStoreCategory(name) {
+      const val = (name || "").toLowerCase();
+      if (val.includes("burger king") || val.includes("subway") || val.includes("bk") || val.startsWith("bk")) {
+        return "fastfood";
+      }
+      if (val.includes("wash") || val.includes("carwash")) {
+        return "carwash";
+      }
+      return "cstore";
+    }
+
+    // Abbreviator
+    function formatStoreNameDisplay(name) {
+      if (!name) return "";
+      let str = name;
+      str = str.replace(/Paradise\s+Quick\s+Stop/gi, "PQS");
+      str = str.replace(/Paradise\s+Quickstop/gi, "PQS");
+      str = str.replace(/Burger\s+King/gi, "BK");
+      str = str.replace(/\bBK\s*#?\d+\b/gi, "BK");
+      str = str.replace(/\bBK\d+\b/gi, "BK");
+      str = str.replace(/\bBK\s+BK\b/gi, "BK");
+      return str.replace(/\s+/g, " ").trim();
+    }
+
+    // 4. Computation Layer: Filters and renders stores card listings
+    function combineAndRender() {
+      const loadingPlaceholder = document.getElementById("loading-placeholder");
+      const emptyStateCard = document.getElementById("empty-state-card");
+      const storesGrid = document.getElementById("stores-grid");
+
+      const restaurantList = Object.keys(rawRestaurants).map(id => {
+        const store = rawRestaurants[id];
+        const safeKey = getFirebaseSafePathKey(store.storeNumber);
+        const record = rawGasCoverChanges[safeKey] || {};
+
+        const gasChangedVal = record.gasChanged || "";
+        const dieselChangedVal = record.dieselChanged || "";
+        const gasDateVal = record.gasChangedDate || "";
+        const dieselDateVal = record.dieselChangedDate || "";
+        const gasTimestamp = record.gasChangedTimestamp || null;
+        const dieselTimestamp = record.dieselChangedTimestamp || null;
+
+        // Fetch most recent across active changed dates
+        const activeTimestamps = [gasTimestamp, dieselTimestamp].filter(t => t !== null);
+        const lastChangedTimestamp = activeTimestamps.length > 0 ? Math.max(...activeTimestamps) : null;
+        const daysElapsed = calculateDaysSinceChange(lastChangedTimestamp);
+
+        let status = "pending";
+        let isOverdue = false;
+
+        const hasBothCompleted = gasChangedVal === "yes" && dieselChangedVal === "yes";
+
+        if (hasBothCompleted) {
+          if (daysElapsed !== null && daysElapsed > REMINDER_THRESHOLD_DAYS) {
+            status = "overdue";
+            isOverdue = true;
+          } else {
+            status = "good";
+          }
+        } else if (gasChangedVal !== "" || dieselChangedVal !== "") {
+          if (daysElapsed !== null && daysElapsed > REMINDER_THRESHOLD_DAYS) {
+            status = "overdue";
+            isOverdue = true;
+          } else {
+            status = "pending";
+          }
+        }
+
+        return {
+          id: id,
+          ...store,
+          gasChanged: gasChangedVal,
+          dieselChanged: dieselChangedVal,
+          gasChangedDate: gasDateVal,
+          dieselChangedDate: dieselDateVal,
+          gasChangedTimestamp: gasTimestamp,
+          dieselChangedTimestamp: dieselTimestamp,
+          comments: record.comments || "",
+          daysElapsed: daysElapsed,
+          isOverdue: isOverdue,
+          status: status
+        };
+      });
+
+      // Calculate state counters for filter blocks
+      updateStatisticsMetrics(restaurantList);
+
+      // Hide loading spinner once data is here
+      if (loadingPlaceholder) {
+        loadingPlaceholder.style.display = "none";
+      }
+
+      // Filter logic execution
+      let displayedStores = [...restaurantList];
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        displayedStores = displayedStores.filter(store => 
+          (store.storeName || "").toLowerCase().includes(q) ||
+          (store.storeNumber || "").toLowerCase().includes(q) ||
+          (store.comments || "").toLowerCase().includes(q)
+        );
+      }
+
+      if (statusFilter !== "all") {
+        displayedStores = displayedStores.filter(store => {
+          if (statusFilter === "completed") return store.gasChanged === "yes" && store.dieselChanged === "yes" && store.status === "good";
+          if (statusFilter === "partial") return (store.gasChanged === "yes" || store.dieselChanged === "yes") && !(store.gasChanged === "yes" && store.dieselChanged === "yes");
+          if (statusFilter === "pending") return store.gasChanged !== "yes" && store.dieselChanged !== "yes";
+          if (statusFilter === "overdue") return store.status === "overdue";
+          return true;
+        });
+      }
+
+      if (categoryFilter !== "all") {
+        displayedStores = displayedStores.filter(store => getStoreCategory(store.storeName) === categoryFilter);
+      }
+
+      if (regionFilter !== "all") {
+        displayedStores = displayedStores.filter(store => {
+          if (store.territory) {
+            const t = String(store.territory).toLowerCase().trim();
+            if (t.includes("east") || t === "e" || t === "etx") return regionFilter === "east";
+            if (t.includes("west") || t === "w" || t === "wtx") return regionFilter === "west";
+          }
+          const lng = parseFloat(store.longitude || store.lng || store.lon || store.long || 0);
+          if (isNaN(lng) || lng === 0) return false;
+          return regionFilter === "east" ? lng >= -96 : lng < -96;
+        });
+      }
+
+      // Sorting: Overdue -> Partial -> Pending -> Store Numerics
+      displayedStores.sort((a, b) => {
+        const getPriority = (s) => {
+          if (s.status === "overdue") return 1;
+          if (s.gasChanged === "yes" || s.dieselChanged === "yes") {
+            if (s.gasChanged === "yes" && s.dieselChanged === "yes") return 4;
+            return 2;
+          }
+          return 3;
+        };
+        const priorityA = getPriority(a);
+        const priorityB = getPriority(b);
+
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+
+        const numA = parseInt(a.storeNumber.replace(/\D/g, "")) || 0;
+        const numB = parseInt(b.storeNumber.replace(/\D/g, "")) || 0;
+        return numA - numB;
+      });
+
+      // Populate interface list
+      if (displayedStores.length === 0) {
+        emptyStateCard.style.display = "block";
+        storesGrid.style.display = "none";
+      } else {
+        emptyStateCard.style.display = "none";
+        storesGrid.style.display = "grid";
+
+        storesGrid.innerHTML = displayedStores.map(store => {
+          const gas = store.gasChanged === "yes";
+          const diesel = store.dieselChanged === "yes";
+          const category = getStoreCategory(store.storeName);
+
+          let cardBorder = "border-slate-200";
+          let statusBg = "bg-slate-100 text-slate-600";
+          let statusText = "Pending";
+
+          if (gas && diesel) {
+            if (store.status === "overdue") {
+              cardBorder = "border-rose-300 hover:border-rose-400 hover:shadow-rose-100 bg-rose-50/10";
+              statusBg = "bg-rose-100 text-rose-800";
+              statusText = "Overdue";
+            } else {
+              cardBorder = "border-emerald-300 hover:border-emerald-400 hover:shadow-emerald-105 bg-emerald-50/5";
+              statusBg = "bg-emerald-100 text-emerald-800";
+              statusText = "Completed";
+            }
+          } else if (gas || diesel) {
+            cardBorder = "border-amber-300 hover:border-amber-400 bg-amber-50/5";
+            statusBg = "bg-amber-100 text-amber-800";
+            statusText = "Partial";
+          }
+
+          const activeDays = [
+            calculateDaysSinceChange(store.gasChangedTimestamp),
+            calculateDaysSinceChange(store.dieselChangedTimestamp)
+          ].filter(d => d !== null);
+          const maxDays = activeDays.length > 0 ? Math.max(...activeDays) : null;
+
+          return `
+            <div
+              id="store-card-${store.id}"
+              onclick="openStoreDetails('${store.id}', ${JSON.stringify(store).replace(/"/g, '&quot;')})"
+              class="bg-white border rounded-xl p-4 cursor-pointer transition-all duration-150 flex flex-col justify-between hover:-translate-y-0.5 hover:shadow-md ${cardBorder}"
+            >
+              <div>
+                <div class="flex items-start justify-between gap-2 mb-3.5">
+                  <div class="flex items-center gap-2">
+                    <span class="bg-slate-100 text-slate-800 text-xs font-bold font-mono px-2.5 py-1 rounded-sm border border-slate-200">
+                      #${escapeHtml(store.storeNumber || "N/A")}
+                    </span>
+                    <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      ${category === "fastfood" ? "🍔 Fast Food" : category === "carwash" ? "🧼 Car Wash" : "🏪 C-Store"}
+                    </span>
+                  </div>
+                  <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-sm tracking-wider ${statusBg}">
+                    ${statusText}
+                  </span>
+                </div>
+
+                <h4 class="text-sm font-bold text-slate-900 leading-snug tracking-tight mb-2 truncate" title="${escapeHtml(store.storeName)}">
+                  ${escapeHtml(formatStoreNameDisplay(store.storeName))}
+                </h4>
+
+                <div class="flex flex-col gap-1.5 mb-4">
+                  <div class="flex items-center justify-between text-xs font-medium text-slate-500">
+                    <span class="flex items-center gap-1 text-slate-600">
+                      <i data-lucide="flame" class="h-3.5 w-3.5 ${gas ? "text-emerald-500 fill-emerald-100" : "text-slate-400"}"></i>
+                      Gas Filters
+                    </span>
+                    <span class="font-bold ${gas ? "text-emerald-600 bg-emerald-50 px-1.5 rounded-sm" : "text-slate-400"}">
+                      ${gas ? "Changed" : "No"}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs font-medium text-slate-500">
+                    <span class="flex items-center gap-1 text-slate-600">
+                      <i data-lucide="fuel" class="h-3.5 w-3.5 ${diesel ? "text-blue-500 fill-blue-50" : "text-slate-400"}"></i>
+                      Diesel Filters
+                    </span>
+                    <span class="font-bold ${diesel ? "text-blue-600 bg-blue-50 px-1.5 rounded-sm" : "text-slate-400"}">
+                      ${diesel ? "Changed" : "No"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              ${(gas || diesel) && maxDays !== null ? `
+                <div class="border-t border-slate-100 pt-2.5 mt-2 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                  <span class="flex items-center gap-1">
+                    <i data-lucide="clock" class="h-3.5 w-3.5 text-slate-400 stroke-[2.2]"></i>
+                    Last changed
+                  </span>
+                  <span class="${store.status === 'overdue' ? 'text-rose-600 font-bold' : 'text-slate-600 font-mono'}">
+                    ${maxDays === 0 ? 'Today' : maxDays + ' days ago'}
+                  </span>
+                </div>
+              ` : `
+                <div class="border-t border-slate-100 pt-2.5 mt-2 text-[11px] font-semibold text-slate-400 italic text-center">
+                  No filter changes registered
+                </div>
+              `}
+            </div>
+          `;
+        }).join("");
+      }
+
+      // Re-hydrate custom lucide icons dynamically
+      lucide.createIcons();
+    }
+
+    // 5. Aggregate metrics
+    function updateStatisticsMetrics(allStores) {
+      const countTotal = allStores.length;
+      const countCompleted = allStores.filter(s => s.gasChanged === "yes" && s.dieselChanged === "yes" && s.status === "good").length;
+      const countPartial = allStores.filter(s => (s.gasChanged === "yes" || s.dieselChanged === "yes") && !(s.gasChanged === "yes" && s.dieselChanged === "yes")).length;
+      const countPending = allStores.filter(s => s.gasChanged !== "yes" && s.dieselChanged !== "yes").length;
+      const countOverdue = allStores.filter(s => s.status === "overdue").length;
+
+      document.getElementById("count-total").innerText = countTotal;
+      document.getElementById("count-completed").innerText = countCompleted;
+      document.getElementById("count-partial").innerText = countPartial;
+      document.getElementById("count-pending").innerText = countPending;
+      document.getElementById("count-overdue").innerText = countOverdue;
+
+      const percent = countTotal ? Math.round((countCompleted / countTotal) * 100) : 0;
+      document.getElementById("percent-completed").innerText = `${percent}%`;
+
+      // Active state highlight borders
+      updateStatStyles();
+    }
+
+    // Highlight selected metric active card
+    function updateStatStyles() {
+      const stats = ["all", "completed", "partial", "pending", "overdue"];
+      stats.forEach(st => {
+        const el = document.getElementById(`stat-${st === "all" ? "total" : st}`);
+        if (!el) return;
+
+        if (statusFilter === st) {
+          if (st === "all") el.className = "bg-white border border-slate-800 ring-2 ring-slate-100 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150";
+          else if (st === "completed") el.className = "bg-white border border-emerald-600 ring-2 ring-emerald-500/10 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150";
+          else if (st === "partial") el.className = "bg-white border border-amber-600 ring-2 ring-amber-500/10 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150";
+          else if (st === "pending") el.className = "bg-white border border-slate-500 ring-2 ring-slate-500/10 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150";
+          else if (st === "overdue") el.className = "bg-white border border-rose-600 ring-2 ring-rose-500/10 p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150 bg-rose-50/10";
+        } else {
+          el.className = `bg-white border ${st === 'overdue' ? 'border-rose-100 bg-rose-50/10' : 'border-slate-200'} p-4 rounded-xl cursor-pointer hover:shadow-md transition-all duration-150`;
+        }
+      });
+    }
+
+    // Filter controls callbacks
+    function handleSearch(val) {
+      searchQuery = val;
+      const clearBtn = document.getElementById("search-clear-btn");
+      clearBtn.style.display = val.trim() ? "block" : "none";
+      combineAndRender();
+    }
+
+    function clearSearch() {
+      const input = document.getElementById("search-input");
+      input.value = "";
+      searchQuery = "";
+      document.getElementById("search-clear-btn").style.display = "none";
+      combineAndRender();
+    }
+
+    function setStatusFilter(val) {
+      statusFilter = val;
+      const select = document.getElementById("status-dropdown");
+      if (select.value !== val) select.value = val;
+      combineAndRender();
+    }
+
+    function setCategoryFilter(val) {
+      categoryFilter = val;
+      combineAndRender();
+    }
+
+    function setRegionFilter(val) {
+      regionFilter = val;
+      combineAndRender();
+    }
+
+    function resetFilters() {
+      searchQuery = "";
+      statusFilter = "all";
+      categoryFilter = "all";
+      regionFilter = "all";
+
+      document.getElementById("search-input").value = "";
+      document.getElementById("search-clear-btn").style.display = "none";
+      document.getElementById("status-dropdown").value = "all";
+      document.getElementById("category-dropdown").value = "all";
+      document.getElementById("region-dropdown").value = "all";
+
+      combineAndRender();
+    }
+
+    // ==========================================
+    // INTERACTIVE MODAL ACTIONS
+    // ==========================================
+    function openStoreDetails(storeId, storeObj) {
+      selectedStoreId = storeId;
+      
+      // Load static properties
+      document.getElementById("modal-store-badge").innerText = `Store Unit #${storeObj.storeNumber || "N/A"}`;
+      document.getElementById("modal-store-name").innerText = formatStoreNameDisplay(storeObj.storeName);
+      
+      const phoneEl = document.getElementById("modal-store-phone");
+      phoneEl.innerText = storeObj.phone ? `📞 ${storeObj.phone}` : "No phone listed";
+
+      const addressTextEl = document.getElementById("modal-store-address-text");
+      const addressLinkEl = document.getElementById("modal-store-address-link");
+      if (storeObj.address) {
+        addressTextEl.innerText = storeObj.address;
+        addressLinkEl.href = `https://maps.google.com/?q=${encodeURIComponent(storeObj.address)}`;
+        addressLinkEl.style.display = "inline-flex";
+      } else {
+        addressTextEl.innerText = "No physical address registered.";
+        addressLinkEl.removeAttribute("href");
+        addressLinkEl.style.display = "none";
+      }
+
+      // Initialize inputs from data store
+      gasChanged = storeObj.gasChanged || "";
+      dieselChanged = storeObj.dieselChanged || "";
+      gasDate = storeObj.gasChangedDate || "";
+      dieselDate = storeObj.dieselChangedDate || "";
+      modalComments = storeObj.comments || "";
+
+      document.getElementById("comments-textarea").value = modalComments;
+      document.getElementById("char-counter").innerText = `${modalComments.length} / 250`;
+
+      // Set input visibility and active status buttons
+      renderModalQuestionsState();
+
+      // Show/hide clear record button
+      const hasPreviousRecord = storeObj.gasChanged || storeObj.dieselChanged;
+      document.getElementById("clear-record-btn").style.display = hasPreviousRecord ? "inline-flex" : "none";
+
+      // Display Backdrop Overlay
+      document.getElementById("details-modal-backdrop").style.display = "flex";
+      
+      // Update check icon overlay inside button
+      setSaveStatusInUI(false, false);
+      lucide.createIcons();
+    }
+
+    function closeModal() {
+      document.getElementById("details-modal-backdrop").style.display = "none";
+      selectedStoreId = null;
+    }
+
+    // Synchronize UI buttons in modal reflecting Yes / No selection and Dates
+    function renderModalQuestionsState() {
+      // 1. Gas Buttons style
+      const btnGasYes = document.getElementById("opt-gas-yes");
+      const btnGasNo = document.getElementById("opt-gas-no");
+      const badgeGas = document.getElementById("gas-status-badge");
+      const blockGasDate = document.getElementById("gas-date-field");
+
+      if (gasChanged === "yes") {
+        btnGasYes.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs";
+        btnGasNo.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        badgeGas.style.display = "inline-block";
+        badgeGas.className = "text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-emerald-100 text-emerald-800";
+        badgeGas.innerText = "CHANGED";
+        blockGasDate.style.display = "flex";
+        document.getElementById("gas-datepicker").value = gasDate;
+      } else if (gasChanged === "no") {
+        btnGasYes.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        btnGasNo.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-rose-50 border-rose-500 text-rose-700 shadow-xs";
+        badgeGas.style.display = "inline-block";
+        badgeGas.className = "text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-rose-100 text-rose-800";
+        badgeGas.innerText = "NO";
+        blockGasDate.style.display = "none";
+      } else {
+        btnGasYes.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        btnGasNo.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        badgeGas.style.display = "none";
+        blockGasDate.style.display = "none";
+      }
+
+      // 2. Diesel Buttons style
+      const btnDieselYes = document.getElementById("opt-diesel-yes");
+      const btnDieselNo = document.getElementById("opt-diesel-no");
+      const badgeDiesel = document.getElementById("diesel-status-badge");
+      const blockDieselDate = document.getElementById("diesel-date-field");
+
+      if (dieselChanged === "yes") {
+        btnDieselYes.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-blue-50 border-blue-500 text-blue-700 shadow-xs";
+        btnDieselNo.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        badgeDiesel.style.display = "inline-block";
+        badgeDiesel.className = "text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-blue-100 text-blue-800";
+        badgeDiesel.innerText = "CHANGED";
+        blockDieselDate.style.display = "flex";
+        document.getElementById("diesel-datepicker").value = dieselDate;
+      } else if (dieselChanged === "no") {
+        btnDieselYes.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        btnDieselNo.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-rose-50 border-rose-500 text-rose-700 shadow-xs";
+        badgeDiesel.style.display = "inline-block";
+        badgeDiesel.className = "text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm bg-rose-100 text-rose-800";
+        badgeDiesel.innerText = "NO";
+        blockDieselDate.style.display = "none";
+      } else {
+        btnDieselYes.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        btnDieselNo.className = "py-2 text-sm font-bold rounded-lg border-2 transition-all duration-150 min-h-[44px] flex items-center justify-center gap-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        badgeDiesel.style.display = "none";
+        blockDieselDate.style.display = "none";
+      }
+
+      // Check validation constraints
+      validateSaveButtonAvailability();
+    }
+
+    function setGasChanged(val) {
+      gasChanged = val;
+      if (val === "yes" && !gasDate) {
+        gasDate = getTodayDateString();
+      } else if (val === "no") {
+        gasDate = "";
+      }
+      renderModalQuestionsState();
+    }
+
+    function setDieselChanged(val) {
+      dieselChanged = val;
+      if (val === "yes" && !dieselDate) {
+        dieselDate = getTodayDateString();
+      } else if (val === "no") {
+        dieselDate = "";
+      }
+      renderModalQuestionsState();
+    }
+
+    function getTodayDateString() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function setGasDateToday() {
+      gasDate = getTodayDateString();
+      document.getElementById("gas-datepicker").value = gasDate;
+      validateSaveButtonAvailability();
+    }
+
+    function setDieselDateToday() {
+      dieselDate = getTodayDateString();
+      document.getElementById("diesel-datepicker").value = dieselDate;
+      validateSaveButtonAvailability();
+    }
+
+    function updateCommentsValue(val) {
+      modalComments = val.slice(0, 250);
+      document.getElementById("char-counter").innerText = `${modalComments.length} / 250`;
+    }
+
+    // Constraints checklist validation
+    function validateSaveButtonAvailability() {
+      const isGasInvalid = (gasChanged === "yes" && !document.getElementById("gas-datepicker").value);
+      const isDieselInvalid = (dieselChanged === "yes" && !document.getElementById("diesel-datepicker").value);
+      
+      const saveBtn = document.getElementById("save-changes-btn");
+      if (isGasInvalid || isDieselInvalid || isSaving) {
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = "0.5";
+      } else {
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = "1";
+      }
+    }
+
+    // Save and register record under specific node "gasCoverChanges"
+    function handleSaveRecord() {
+      if (!selectedStoreId || isSaving) return;
+
+      const storeObj = rawRestaurants[selectedStoreId];
+      if (!storeObj) return;
+
+      const pickerGasDate = document.getElementById("gas-datepicker") ? document.getElementById("gas-datepicker").value : "";
+      const pickerDieselDate = document.getElementById("diesel-datepicker") ? document.getElementById("diesel-datepicker").value : "";
+
+      if (gasChanged === "yes" && !pickerGasDate) {
+        alert("Please select a date for Gas Filters changed.");
+        return;
+      }
+      if (dieselChanged === "yes" && !pickerDieselDate) {
+        alert("Please select a date for Diesel Filters changed.");
+        return;
+      }
+
+      setSaveStatusInUI(true, false);
+
+      const getTimestamp = (dateStr) => {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split("-").map(Number);
+        return new Date(year, month - 1, day, 12, 0, 0).getTime();
+      };
+
+      const gasTimestamp = gasChanged === "yes" ? getTimestamp(pickerGasDate) : null;
+      const dieselTimestamp = dieselChanged === "yes" ? getTimestamp(pickerDieselDate) : null;
+
+      const safeKey = getFirebaseSafePathKey(storeObj.storeNumber);
+      const payload = {
+        storeNumber: storeObj.storeNumber,
+        gasChanged: gasChanged,
+        dieselChanged: dieselChanged,
+        gasChangedDate: gasChanged === "yes" ? pickerGasDate : "",
+        dieselChangedDate: dieselChanged === "yes" ? pickerDieselDate : "",
+        gasChangedTimestamp: gasTimestamp,
+        dieselChangedTimestamp: dieselTimestamp,
+        comments: modalComments.trim(),
+        updatedAt: Date.now()
+      };
+
+      db.ref(`gasCoverChanges/${safeKey}`).update(payload, (err) => {
+        setSaveStatusInUI(false, !err);
+        if (err) {
+          alert("Error saving: " + err.message);
+        } else {
+          setTimeout(() => {
+            closeModal();
+          }, 850);
+        }
+      });
+    }
+
+    // Reset clean cover state
+    function handleClearRecord() {
+      if (!selectedStoreId || isSaving) return;
+
+      const storeObj = rawRestaurants[selectedStoreId];
+      if (!storeObj) return;
+
+      if (!confirm(`Are you sure you want to completely clear Gas and Diesel Filters maintenance records for Store #${storeObj.storeNumber}?`)) {
+        return;
+      }
+
+      setSaveStatusInUI(true, false);
+      const safeKey = getFirebaseSafePathKey(storeObj.storeNumber);
+
+      const resetPayload = {
+        storeNumber: storeObj.storeNumber,
+        gasChanged: "",
+        dieselChanged: "",
+        gasChangedDate: "",
+        dieselChangedDate: "",
+        gasChangedTimestamp: null,
+        dieselChangedTimestamp: null,
+        comments: "",
+        updatedAt: Date.now()
+      };
+
+      db.ref(`gasCoverChanges/${safeKey}`).update(resetPayload, (err) => {
+        setSaveStatusInUI(false, !err);
+        if (err) {
+          alert("Reset request failed: " + err.message);
+        } else {
+          setTimeout(() => {
+            closeModal();
+          }, 850);
+        }
+      });
+    }
+
+    // Manage UI interactive saving indicator overlay
+    function setSaveStatusInUI(loading, success) {
+      isSaving = loading;
+      const spinner = document.getElementById("save-spinner");
+      const iconCheck = document.getElementById("save-check-icon");
+      const labelText = document.getElementById("save-btn-text");
+      const saveBtn = document.getElementById("save-changes-btn");
+
+      if (loading) {
+        spinner.style.display = "inline-block";
+        iconCheck.style.display = "none";
+        labelText.innerText = "Saving...";
+        saveBtn.className = "px-6 py-2.5 text-xs font-bold text-white rounded-lg transition-all shadow-xs flex items-center gap-1.5 bg-blue-600 opacity-50";
+        saveBtn.disabled = true;
+      } else if (success) {
+        spinner.style.display = "none";
+        iconCheck.style.display = "inline-block";
+        labelText.innerText = "Saved Successfully";
+        saveBtn.className = "px-6 py-2.5 text-xs font-bold text-white rounded-lg transition-all shadow-xs flex items-center gap-1.5 bg-emerald-600";
+        saveBtn.disabled = true;
+      } else {
+        spinner.style.display = "none";
+        iconCheck.style.display = "none";
+        labelText.innerText = "Save Record";
+        saveBtn.className = "px-6 py-2.5 text-xs font-bold text-white rounded-lg transition-all shadow-xs flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700";
+        saveBtn.disabled = false;
+      }
+      lucide.createIcons();
+    }
+
+    // Double escape HTML strings
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Modal background layout closing register
+    document.getElementById("details-modal-backdrop").addEventListener("click", function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+</body>
+</html>
